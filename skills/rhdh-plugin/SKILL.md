@@ -3,6 +3,22 @@ name: rhdh-plugin
 description: Manage RHDH plugins - onboard, update, and maintain plugins in the Extensions Catalog. Use when working with plugin workspaces, overlay repo PRs, or plugin lifecycle tasks.
 ---
 
+<cli_setup>
+**Set the CLI variable for this session:**
+
+```bash
+RHDH_PLUGIN="${CLAUDE_PLUGIN_ROOT}/scripts/rhdh-plugin"
+```
+
+**Get oriented (run first):**
+
+```bash
+$RHDH_PLUGIN
+```
+
+This shows environment status, discovered repos, and available tools.
+</cli_setup>
+
 <essential_principles>
 
 <principle name="overlay_repo_pattern">
@@ -38,20 +54,27 @@ Check existing PRs for structure examples.
 **Run on invocation to understand current state:**
 
 ```bash
-# Check if in overlay repo
-[ -f versions.json ] && echo "IN_OVERLAY_REPO"
-
-# Check for existing workspaces
-ls workspaces/ 2>/dev/null | head -10
-
-# Check current branch
-git branch --show-current 2>/dev/null
+$RHDH_PLUGIN
 ```
 
-**If not in overlay repo:** Guide user to clone or navigate to it.
+This checks:
+- Overlay repo location and status
+- rhdh-local availability
+- gh CLI authentication
+- Container runtime (podman/docker)
+
+**If repos not found:** Run `$RHDH_PLUGIN config init` to auto-detect or configure paths.
 </context_scan>
 
 <intake>
+## Step 1: Run CLI
+
+```bash
+$RHDH_PLUGIN
+```
+
+## Step 2: Menu
+
 What would you like to do?
 
 1. **Onboard a new plugin** — Add upstream plugin to Extensions Catalog
@@ -74,12 +97,16 @@ What would you like to do?
 </routing>
 
 <inline_status_check>
-For status checks, run these commands and report findings:
+For status checks, use the CLI:
 
 ```bash
-# Plugin workspace status
-ls -la workspaces/<name>/
+$RHDH_PLUGIN workspace list              # List all workspaces
+$RHDH_PLUGIN workspace status <name>     # Check specific workspace
+```
 
+Or run direct commands:
+
+```bash
 # Recent CI runs
 gh run list --repo redhat-developer/rhdh-plugin-export-overlays --limit 5
 
@@ -87,6 +114,44 @@ gh run list --repo redhat-developer/rhdh-plugin-export-overlays --limit 5
 gh pr list --repo redhat-developer/rhdh-plugin-export-overlays --search "<name>"
 ```
 </inline_status_check>
+
+<cli_commands>
+**Invocation:** Set the variable for this session:
+
+```bash
+RHDH_PLUGIN="${CLAUDE_PLUGIN_ROOT}/scripts/rhdh-plugin"
+```
+
+**Environment status (no args):**
+
+```bash
+$RHDH_PLUGIN
+```
+
+Shows overlay repo, rhdh-local, tools status, and next steps.
+
+**Full environment check:**
+
+```bash
+$RHDH_PLUGIN doctor
+```
+
+**Configuration:**
+
+```bash
+$RHDH_PLUGIN config init              # Create config with auto-detection
+$RHDH_PLUGIN config show              # Show resolved paths
+$RHDH_PLUGIN config set overlay /path # Set repo location
+$RHDH_PLUGIN config set local /path   # Set rhdh-local location
+```
+
+**Workspace operations:**
+
+```bash
+$RHDH_PLUGIN workspace list           # List all plugin workspaces
+$RHDH_PLUGIN workspace status <name>  # Show workspace details
+```
+</cli_commands>
 
 <reference_index>
 **Overlay repo patterns:** references/overlay-repo.md
