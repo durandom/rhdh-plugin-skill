@@ -357,6 +357,8 @@ EOF
     print_next_steps \
         "rhdh-plugin config show" "View configuration" \
         "rhdh-plugin doctor" "Verify setup"
+
+    return 0
 }
 
 config_show() {
@@ -398,6 +400,8 @@ config_show() {
     print_next_steps \
         "rhdh-plugin config set <key> <path>" "Update a path" \
         "rhdh-plugin doctor" "Verify setup"
+
+    return 0
 }
 
 config_set() {
@@ -474,7 +478,7 @@ workspace_list() {
             fi
 
             printf "  ${BLUE}%-30s${NC} %s\n" "$name" "${repo_ref:-(no source.json)}"
-            ((count++))
+            ((++count))  # Pre-increment to avoid exit code 1 when count=0
         fi
     done
 
@@ -484,6 +488,8 @@ workspace_list() {
     print_next_steps \
         "rhdh-plugin workspace status <name>" "Check specific workspace" \
         "/onboard-plugin" "Add new plugin"
+
+    return 0
 }
 
 workspace_status() {
@@ -541,6 +547,8 @@ workspace_status() {
     print_next_steps \
         "cd ${workspace}" "Navigate to workspace" \
         "rhdh-plugin workspace list" "List all workspaces"
+
+    return 0
 }
 
 # ============================================================================
