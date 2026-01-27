@@ -1,0 +1,19 @@
+{
+  "name": "rhdh-plugin",
+  "description": "Manage RHDH plugins - onboard, update, and maintain plugins in the Extensions Catalog",
+  "version": "1.0.0",
+  "author": {
+    "name": "RHDH Store Manager"
+  },
+  "homepage": "https://github.com/redhat-developer/rhdh-plugin-skill",
+  "repository": "https://github.com/redhat-developer/rhdh-plugin-skill",
+  "license": "Apache-2.0",
+  "keywords": [
+    "rhdh",
+    "backstage",
+    "plugins",
+    "dynamic-plugins",
+    "extensions-catalog",
+    "red-hat-developer-hub"
+  ]
+}

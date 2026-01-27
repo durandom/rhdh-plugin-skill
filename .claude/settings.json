@@ -1,4 +1,18 @@
 {
+  "commands": {
+    "onboard-plugin": {
+      "path": "../commands/onboard-plugin.md"
+    },
+    "update-plugin": {
+      "path": "../commands/update-plugin.md"
+    },
+    "fix-plugin-build": {
+      "path": "../commands/fix-plugin-build.md"
+    },
+    "plugin-status": {
+      "path": "../commands/plugin-status.md"
+    }
+  },
   "skills": {
     "rhdh-plugin": {
       "path": "../skills/rhdh-plugin/SKILL.md",

@@ -1,0 +1,19 @@
+{
+  "name": "rhdh-plugin",
+  "owner": {
+    "name": "RHDH Store Manager"
+  },
+  "metadata": {
+    "description": "Manage RHDH plugins - onboard, update, and maintain plugins in the Extensions Catalog",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "rhdh-plugin",
+      "source": "./",
+      "description": "Skills and commands for RHDH plugin lifecycle management",
+      "version": "1.0.0",
+      "strict": true
+    }
+  ]
+}
