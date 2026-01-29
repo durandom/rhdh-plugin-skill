@@ -218,6 +218,37 @@ Merge when ready, or wait for additional review if desired.
 
 </process>
 
+<tracking>
+
+## Activity Logging
+
+Log PR analysis for tracking review patterns:
+
+```bash
+# Analysis complete
+rhdh-plugin log add "Analyzed PR #<number>: <status> (<plugin-name>)" --tag analyze-pr --tag <plugin-name>
+
+# Actions taken
+rhdh-plugin log add "Triggered /publish on PR #<number>" --tag analyze-pr --tag publish
+rhdh-plugin log add "Requested changes on PR #<number>: <reason>" --tag analyze-pr --tag review
+rhdh-plugin log add "Approved PR #<number>" --tag analyze-pr --tag review
+```
+
+## Follow-up Todos
+
+```bash
+# If PR needs external input
+rhdh-plugin todo add "Request CODEOWNERS entry from @<author> on PR #<number>" --context "PR #<number>"
+
+# If compatibility concern
+rhdh-plugin todo add "Verify <plugin> compat after backstage bump" --context "PR #<number>"
+
+# If waiting on contributor
+rhdh-plugin todo add "Follow up with @<author> on PR #<number> feedback" --context "PR #<number>"
+```
+
+</tracking>
+
 <success_criteria>
 Analysis is complete when:
 

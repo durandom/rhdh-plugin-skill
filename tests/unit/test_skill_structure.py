@@ -99,7 +99,13 @@ class TestSkillMdStructure:
                 # Check for markdown headings at start of line
                 if re.match(r"^#{1,3}\s", line.strip()):
                     # Allow in sections that commonly use subheadings for organization
-                    allowed_sections = ("intake", "routing", "workflows_index", "success_criteria")
+                    allowed_sections = (
+                        "intake",
+                        "routing",
+                        "workflows_index",
+                        "success_criteria",
+                        "tracking_system",
+                    )
                     if section_name in allowed_sections:
                         continue
                     pytest.fail(f"Found markdown heading in <{section_name}>: {line.strip()}")

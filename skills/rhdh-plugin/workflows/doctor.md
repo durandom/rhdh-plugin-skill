@@ -51,6 +51,31 @@ export RHDH_LOCAL_REPO=/path/to/rhdh-local
 
 </process>
 
+<tracking>
+
+## Activity Logging
+
+Log setup events for troubleshooting:
+
+```bash
+# Initial setup
+rhdh-plugin log add "Environment setup complete" --tag setup
+
+# Configuration changes
+rhdh-plugin log add "Configured overlay repo: <path>" --tag setup --tag config
+rhdh-plugin log add "Configured rhdh-local: <path>" --tag setup --tag config
+```
+
+## Follow-up Todos
+
+```bash
+# If setup blocked
+rhdh-plugin todo add "Request access to overlay repo" --context "setup"
+rhdh-plugin todo add "Set up GitHub SSH keys" --context "setup"
+```
+
+</tracking>
+
 <success_criteria>
 Setup complete when `rhdh-plugin` shows `needs_setup: false`.
 </success_criteria>

@@ -198,6 +198,49 @@ The triage report should be:
 4. **Complete** — account for all open PRs (even if just to skip)
 </output_format>
 
+<tracking>
+
+## Activity Logging
+
+Log triage sessions to track patterns over time:
+
+```bash
+# Session start/end
+rhdh-plugin log add "Triage: <N> open PRs, <X> critical, <Y> medium" --tag triage
+
+# Actions taken
+rhdh-plugin log add "Triggered /publish on PR #<number> (<plugin-name>)" --tag triage --tag publish
+rhdh-plugin log add "Assigned @<user> to PR #<number>" --tag triage --tag assignment
+rhdh-plugin log add "Pinged @<user> on stale PR #<number>" --tag triage --tag stale
+```
+
+## Follow-up Todos
+
+Create todos for items that need follow-up beyond this session:
+
+```bash
+# Stale critical PRs
+rhdh-plugin todo add "Follow up on stale PR #<number> (<plugin>)" --context "triage"
+
+# Assignment needed
+rhdh-plugin todo add "Find owner for orphan PR #<number>" --context "triage"
+
+# Release blocker
+rhdh-plugin todo add "Escalate: PR #<number> blocking release" --context "triage"
+```
+
+## Viewing History
+
+```bash
+# Past triage sessions
+rhdh-plugin log search "triage"
+
+# Track specific PR across sessions
+rhdh-plugin log search "#<number>"
+```
+
+</tracking>
+
 <success_criteria>
 Triage is complete when:
 

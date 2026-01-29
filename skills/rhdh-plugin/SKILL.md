@@ -48,6 +48,21 @@ Community plugins → copy from `backstage/`
 Check existing PRs for structure examples.
 </principle>
 
+<principle name="track_activity">
+Use `$RHDH_PLUGIN log` and `$RHDH_PLUGIN todo` to maintain context across sessions.
+Log milestones with tags. Create todos when blocked on external input.
+This enables resuming work without re-explaining context and builds an audit trail.
+See the `<tracking_system>` section for details.
+</principle>
+
+<principle name="consult_tool_references">
+**Before using JIRA or GitHub CLI**, read the corresponding reference file:
+- **GitHub:** `references/github-reference.md` — PR queries, CI analysis, `/publish` triggers
+- **JIRA:** `references/jira-reference.md` — JQL queries, issue creation, comment format
+
+These contain critical gotchas (jq escaping, JQL limitations, assignee format) that prevent common errors.
+</principle>
+
 </essential_principles>
 
 <context_scan>
@@ -213,14 +228,101 @@ $RHDH_PLUGIN workspace status <name>  # Show workspace details
 
 </cli_commands>
 
+<tracking_system>
+
+## Activity Tracking (Recommended)
+
+The CLI includes worklog and todo tracking to maintain context across sessions. **Use is recommended but not required.**
+
+### Why Track?
+
+- **Cross-session memory** — Pick up where you left off without re-explaining context
+- **Audit trail** — "When did we onboard X?" / "What happened with PR #123?"
+- **Follow-up reminders** — Don't lose track of blocked items waiting on external input
+
+### Worklog Commands
+
+Append-only activity log stored in `~/.config/rhdh-plugin-skill/worklog.jsonl`:
+
+```bash
+# Log activity with tags for searchability
+$RHDH_PLUGIN log add "Started onboard: aws-appsync" --tag onboard --tag aws-appsync
+$RHDH_PLUGIN log add "PR #1234 merged" --tag aws-appsync --tag pr
+
+# View recent entries
+$RHDH_PLUGIN log show --limit 10
+
+# Search past activity
+$RHDH_PLUGIN log search "aws-appsync"
+$RHDH_PLUGIN log search "onboard"
+```
+
+### Todo Commands
+
+Section-based markdown todos stored in `~/.config/rhdh-plugin-skill/TODO.md`:
+
+```bash
+# Create todo when blocked
+$RHDH_PLUGIN todo add "Check license with legal" --context "aws-appsync"
+$RHDH_PLUGIN todo add "Follow up on stale PR #1234" --context "triage"
+
+# List and manage
+$RHDH_PLUGIN todo list              # All todos
+$RHDH_PLUGIN todo list --pending    # Only open items
+
+# Update progress
+$RHDH_PLUGIN todo note <slug> "Sent email to legal@redhat.com"
+$RHDH_PLUGIN todo done <slug>
+
+# View raw file
+$RHDH_PLUGIN todo show
+```
+
+### When to Track
+
+**Log these milestones:**
+
+- Starting/completing a workflow (onboard, update, triage)
+- PR actions (opened, published, merged)
+- Significant decisions or findings
+
+**Create todos for:**
+
+- Blocked items waiting on external response (legal, upstream, team)
+- Post-merge follow-ups (verify in staging, remove workarounds)
+- Items that span multiple sessions
+
+### Example Session
+
+```bash
+# Starting work
+$RHDH_PLUGIN log add "Starting onboard: backstage-plugin-todo" --tag onboard
+
+# Hit a blocker
+$RHDH_PLUGIN todo add "Clarify MIT+Apache dual license with legal" --context "backstage-plugin-todo"
+$RHDH_PLUGIN log add "Paused onboard: license review needed" --tag onboard --tag blocked
+
+# Later, resuming
+$RHDH_PLUGIN log search "backstage-plugin-todo"  # Recall context
+$RHDH_PLUGIN todo list --pending                  # See blockers
+
+# After resolution
+$RHDH_PLUGIN todo note clarify-mit "Legal approved - attribution required"
+$RHDH_PLUGIN todo done clarify-mit
+$RHDH_PLUGIN log add "Resumed onboard: license approved" --tag onboard
+```
+
+**Each workflow file includes a `<tracking>` section with specific commands for that workflow.**
+
+</tracking_system>
+
 <reference_index>
+**GitHub CLI (PRs, CI, workflows):** references/github-reference.md
+**JIRA CLI (issues, JQL, comments):** references/jira-reference.md
 **Overlay repo patterns:** references/overlay-repo.md
 **CI feedback interpretation:** references/ci-feedback.md
 **Metadata format:** references/metadata-format.md
-**GitHub CLI queries:** references/github-queries.md
-**GitHub tips & gotchas:** references/github-tips.md
 **PR label priorities:** references/label-priority.md
-**JIRA CLI for plugin tracking:** references/jira-reference.md
 </reference_index>
 
 <workflows_index>
@@ -257,6 +359,7 @@ $RHDH_PLUGIN workspace status <name>  # Show workspace details
 - CI passes (`/publish` succeeds)
 - Plugin tested locally with rhdh-local
 - PR merged to overlay repo
+- *(Recommended)* Activity logged for future reference
 
 ### Core Team Success
 
@@ -264,4 +367,5 @@ $RHDH_PLUGIN workspace status <name>  # Show workspace details
 - Stale PRs identified with suggested owners
 - Publish triggered on PRs needing it
 - Compatibility issues flagged before merge
+- *(Recommended)* Triage session logged, follow-ups tracked as todos
 </success_criteria>

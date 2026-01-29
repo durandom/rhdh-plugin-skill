@@ -461,6 +461,58 @@ If tracking this work in JIRA, update the ticket after merge.
 | CI failure unclear | 📖 Reference | Check `references/ci-feedback.md` | Issue understood |
 </action_triggers>
 
+<tracking>
+
+## Activity Logging
+
+Log key milestones to maintain context across sessions:
+
+```bash
+# Starting onboard
+rhdh-plugin log add "Started onboard: <plugin-name> from <upstream-url>" --tag onboard --tag <plugin-name>
+
+# Phase completions
+rhdh-plugin log add "Phase 1 complete: <plugin-name> approved for onboard" --tag onboard --tag <plugin-name>
+rhdh-plugin log add "Phase 2 complete: workspace created for <plugin-name>" --tag onboard --tag <plugin-name>
+rhdh-plugin log add "Phase 3 complete: PR opened #<number>" --tag onboard --tag <plugin-name>
+rhdh-plugin log add "Phase 4 complete: metadata added for <plugin-name>" --tag onboard --tag <plugin-name>
+rhdh-plugin log add "Phase 5 complete: <plugin-name> verified locally" --tag onboard --tag <plugin-name>
+rhdh-plugin log add "Onboard complete: <plugin-name> merged" --tag onboard --tag <plugin-name>
+```
+
+## Follow-up Todos
+
+Create todos when blocked or when follow-up is needed:
+
+```bash
+# License unclear
+rhdh-plugin todo add "Check license with legal for <plugin-name>" --context "<plugin-name>"
+
+# Waiting on external response
+rhdh-plugin todo add "Follow up with upstream maintainer on <issue>" --context "<plugin-name>"
+
+# Post-merge follow-up
+rhdh-plugin todo add "Verify <plugin-name> in next RHDH release" --context "<plugin-name>"
+
+# Add notes to existing todo
+rhdh-plugin todo note <slug> "Sent email to legal@redhat.com"
+rhdh-plugin todo note <slug> "Response: approved with attribution"
+rhdh-plugin todo done <slug>
+```
+
+## Viewing History
+
+```bash
+# Find all onboard activity
+rhdh-plugin log search "onboard"
+rhdh-plugin log search "<plugin-name>"
+
+# Check pending todos
+rhdh-plugin todo list --pending
+```
+
+</tracking>
+
 <success_criteria>
 This workflow is complete when:
 
