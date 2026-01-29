@@ -30,6 +30,5 @@ Thumbs.db
 # uv
 .python-version
 
-# Planning docs (local only)
-.planning/
+# Local config (project-specific settings)
 .rhdh-plugin/
