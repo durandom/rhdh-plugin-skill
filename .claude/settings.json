@@ -11,6 +11,9 @@
     },
     "plugin-status": {
       "path": "../commands/plugin-status.md"
+    },
+    "session-log": {
+      "path": "../commands/session-log.md"
     }
   },
   "skills": {

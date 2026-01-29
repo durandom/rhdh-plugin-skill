@@ -292,6 +292,29 @@ $RHDH_PLUGIN todo show
 - Post-merge follow-ups (verify in staging, remove workarounds)
 - Items that span multiple sessions
 
+### Session Logs
+
+For comprehensive session documentation, use the `/session-log` command:
+
+```bash
+/session-log <descriptive-name>
+```
+
+This creates a detailed markdown document in `.rhdh-plugin/logs/` capturing:
+
+- Work completed (files, PRs, decisions)
+- Remaining work with file:line context
+- Blockers and open questions
+- Resumption context for future sessions
+
+**Use session logs when:**
+
+- Finishing a significant work session (onboarding complete, major PR merged)
+- Stopping mid-task and need to hand off or resume later
+- Creating an audit trail of complex multi-session work
+
+Session logs complement the quick `log add` entries—logs are for activity tracking, session logs are for narrative context.
+
 ### Example Session
 
 ```bash
