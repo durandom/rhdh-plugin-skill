@@ -7,7 +7,7 @@ description: Manage RHDH plugins - onboard, update, maintain, and triage plugins
 **Set the CLI variable for this session:**
 
 ```bash
-RHDH_PLUGIN="${CLAUDE_PLUGIN_ROOT}/scripts/rhdh-plugin"
+RHDH_PLUGIN=scripts/rhdh-plugin
 ```
 
 **Get oriented (run first):**
@@ -74,6 +74,10 @@ This checks:
 $RHDH_PLUGIN
 ```
 
+**If `needs_setup: true`:** Stop and follow the setup instructions in the output. Resume after setup completes.
+
+---
+
 ## Step 2: Identify Role
 
 What would you like to do?
@@ -99,6 +103,14 @@ What would you like to do?
 </intake>
 
 <routing>
+### Doctor Route (Priority)
+
+| Condition | Workflow |
+|-----------|----------|
+| `needs_setup: true` in CLI output | `workflows/doctor.md` |
+
+**Always check this first.** Do not proceed to task workflows if setup is needed.
+
 ### Plugin Owner Routes
 
 | Response | Workflow |

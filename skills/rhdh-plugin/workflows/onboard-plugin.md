@@ -17,6 +17,21 @@ Add a new Backstage plugin to the RHDH Extensions Catalog via the overlay reposi
 | **Knowledge** | Basic understanding of Backstage plugins and dynamic plugin format |
 </prerequisites>
 
+<jira_kickstart>
+**Do you have a JIRA issue for this plugin?**
+
+If yes, provide the issue ID (e.g., `RHIDP-12345`). JIRA tickets often contain:
+
+- Upstream repository URL
+- Plugin name and package details
+- License information
+- Target RHDH version
+
+This can skip much of Phase 1 discovery.
+
+**Reference:** [RHIDP-11137](https://issues.redhat.com/browse/RHIDP-11137) — example plugin onboarding ticket
+</jira_kickstart>
+
 <process>
 
 ## Phase 1: Discovery & Evaluation
@@ -427,36 +442,13 @@ Add verification results to PR description (not comments). See `templates/worksp
 - [ ] Re-trigger `/publish` after significant changes
 - [ ] Merge when all checks pass
 
-### 6.3 Close Out JIRA
+### 6.3 JIRA Tracking (Optional)
 
-After merge, update the JIRA ticket:
+If tracking this work in JIRA, update the ticket after merge.
 
-**1. Add summary comment:**
+**Reference:** See [RHIDP-11137](https://issues.redhat.com/browse/RHIDP-11137) for an example of how plugin onboarding was tracked.
 
-```
-Plugin onboarding complete.
-
-**PR:** <link> (merged)
-
-**Plugins Published:**
-- Frontend: <package-name> (<version>)
-- Backend: <package-name> (<version>)
-
-**Files Added:**
-- workspaces/<name>/ (source.json, plugins-list.yaml, metadata/)
-- catalog-entities/marketplace/plugins/<name>.yaml
-
-**Notes:**
-- <any version overrides, patches, or special handling>
-
-Plugin available in Extensions Catalog on next RHDH release.
-```
-
-**2. Transition to Closed:**
-
-```bash
-jira issue move <TICKET-ID> "Closed"
-```
+**Details:** `references/jira-reference.md` has CLI patterns if needed.
 
 </process>
 
@@ -477,5 +469,5 @@ This workflow is complete when:
 - [ ] Metadata files created (Package + Plugin entities)
 - [ ] Plugin tested locally with rhdh-local
 - [ ] PR reviewed and merged
-- [ ] JIRA ticket closed
+- [ ] JIRA updated (if applicable)
 </success_criteria>

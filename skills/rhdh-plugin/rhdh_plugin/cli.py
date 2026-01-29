@@ -17,12 +17,14 @@ from typing import Any, Optional
 
 from . import __version__
 from .config import (
-    config_init,
-    config_set,
-    get_config_info,
+    SUBMODULE_REPOS,
     get_factory_repo,
+    get_github_username,
     get_local_repo,
     get_overlay_repo,
+    list_submodule_repos,
+    save_github_username,
+    setup_submodule,
 )
 from .formatters import OutputFormatter
 from .todo import (
@@ -216,14 +218,16 @@ def cmd_status(fmt: OutputFormatter, _args: argparse.Namespace) -> int:
         checks.append({"name": "jq", "status": "warn", "message": "not installed"})
         fmt.log_warn("jq: not installed (recommended)")
 
-    # Build next steps based on state
+    # Build output based on state
+    data: dict[str, Any] = {
+        "needs_setup": needs_setup,
+        "checks": checks,
+    }
+
     if needs_setup:
-        next_steps.extend(
-            [
-                "rhdh-plugin config init",
-                "rhdh-plugin doctor",
-            ]
-        )
+        # Just point to doctor - it has all the setup guidance
+        next_steps.append("rhdh-plugin doctor")
+        fmt.render_banner("Configuration needed. Run:", call_to_action="rhdh-plugin doctor")
     else:
         next_steps.extend(
             [
@@ -231,12 +235,6 @@ def cmd_status(fmt: OutputFormatter, _args: argparse.Namespace) -> int:
                 "rhdh-plugin doctor",
             ]
         )
-
-    # Output structured data
-    data = {
-        "needs_setup": needs_setup,
-        "checks": checks,
-    }
 
     fmt.success(data, next_steps=next_steps)
     return 0
@@ -366,18 +364,28 @@ def cmd_doctor(fmt: OutputFormatter, _args: argparse.Namespace) -> int:
     all_passed = len(issues) == 0
     next_steps = []
 
+    needs_setup = not all_passed
+
     if all_passed:
         fmt.log_ok("All checks passed!")
         next_steps = ["rhdh-plugin workspace list", "/onboard-plugin"]
+        data: dict[str, Any] = {
+            "needs_setup": needs_setup,
+            "all_passed": all_passed,
+            "checks": checks,
+            "issues": issues,
+        }
     else:
         fmt.log_warn(f"{len(issues)} issue(s) found")
-        next_steps = ["rhdh-plugin config init", "rhdh-plugin config show"]
-
-    data = {
-        "all_passed": all_passed,
-        "checks": checks,
-        "issues": issues,
-    }
+        next_steps = ["Read workflows/doctor.md for setup instructions"]
+        data = {
+            "needs_setup": needs_setup,
+            "all_passed": all_passed,
+            "checks": checks,
+            "issues": issues,
+            "workflow": "workflows/doctor.md",
+            "agent_instruction": "Read the workflow file for detailed setup steps",
+        }
 
     fmt.success(data, next_steps=next_steps)
     return 0 if all_passed else 1
@@ -388,90 +396,305 @@ def cmd_doctor(fmt: OutputFormatter, _args: argparse.Namespace) -> int:
 # =============================================================================
 
 
-def cmd_config_init(fmt: OutputFormatter, _args: argparse.Namespace) -> int:
+def cmd_config_init(fmt: OutputFormatter, args: argparse.Namespace) -> int:
     """Initialize configuration file."""
-    fmt.header("Initializing Configuration")
+    from .config import run_config
 
-    created, messages = config_init()
+    force = getattr(args, "force", False)
+    global_ = getattr(args, "global_", False)
+    scope = "user" if global_ else "project"
 
-    for msg in messages:
-        if "Created" in msg or "Auto-detected" in msg:
-            fmt.log_ok(msg)
-        elif "already exists" in msg:
-            fmt.log_warn(msg)
+    fmt.header(f"Initializing {scope.title()} Configuration")
+
+    success, data, next_steps = run_config("init", force=force, global_=global_)
+
+    if success and isinstance(data, dict):
+        fmt.log_ok(f"Created: {data.get('created', '')}")
+        config = data.get("config", {})
+        repos = config.get("repos", {})
+        if repos.get("overlay"):
+            fmt.log_ok(f"Auto-detected overlay: {repos['overlay']}")
         else:
-            fmt.log_info(msg)
-
-    if created:
-        fmt.success(
-            {"created": True, "messages": messages},
-            next_steps=["rhdh-plugin config show", "rhdh-plugin doctor"],
-        )
+            fmt.log_info(
+                "overlay: not found (configure with: rhdh-plugin config set repos.overlay /path)"
+            )
+        if repos.get("local"):
+            fmt.log_ok(f"Auto-detected local: {repos['local']}")
+        else:
+            fmt.log_info(
+                "local: not found (configure with: rhdh-plugin config set repos.local /path)"
+            )
+        fmt.success(data, next_steps=next_steps)
+        return 0
     else:
-        fmt.success(
-            {"created": False, "messages": messages},
-            next_steps=["rhdh-plugin config show", "rhdh-plugin config set <key> <path>"],
-        )
-
-    return 0
+        fmt.error("CONFIG_INIT_FAILED", str(data), next_steps=next_steps)
+        return 1
 
 
-def cmd_config_show(fmt: OutputFormatter, _args: argparse.Namespace) -> int:
+def cmd_config_show(fmt: OutputFormatter, args: argparse.Namespace) -> int:
     """Show current configuration."""
+    from .config import run_config
+
+    global_ = getattr(args, "global_", False)
+
     fmt.header("Configuration")
 
-    info = get_config_info()
+    success, data, next_steps = run_config("show", global_=global_)
 
-    # Human-readable output
-    fmt.log_info(f"Config file: {info['config_file']}")
-    fmt.log_info(f"Skill root: {info['skill_root']}")
+    if success and isinstance(data, dict):
+        # Human-readable output
+        fmt.log_info(f"User config: {data.get('user_config_path', '')}")
+        fmt.log_info(f"Project config: {data.get('project_config_path', '')}")
 
-    fmt.header("Resolved Paths")
+        fmt.header("Resolved Paths")
+        resolved = data.get("resolved", {})
+        if resolved.get("overlay"):
+            fmt.log_ok(f"overlay: {resolved['overlay']}")
+        else:
+            fmt.log_fail("overlay: not found")
+        if resolved.get("local"):
+            fmt.log_ok(f"local: {resolved['local']}")
+        else:
+            fmt.log_fail("local: not found")
+        if resolved.get("factory"):
+            fmt.log_ok(f"factory: {resolved['factory']}")
+        else:
+            fmt.log_info("factory: not configured")
 
-    resolved = info["resolved"]
-    if resolved["overlay"]:
-        fmt.log_ok(f"overlay: {resolved['overlay']}")
+        fmt.success(data, next_steps=next_steps)
+        return 0
     else:
-        fmt.log_fail("overlay: not found")
+        fmt.error("CONFIG_SHOW_FAILED", str(data), next_steps=next_steps)
+        return 1
 
-    if resolved["local"]:
-        fmt.log_ok(f"local: {resolved['local']}")
+
+def cmd_config_keys(fmt: OutputFormatter, args: argparse.Namespace) -> int:
+    """List all config keys."""
+    from .config import run_config
+
+    global_ = getattr(args, "global_", False)
+
+    success, data, next_steps = run_config("keys", global_=global_)
+
+    if success and isinstance(data, dict):
+        keys = data.get("keys", [])
+        scope = data.get("scope", "merged")
+        fmt.header(f"Config Keys ({scope})")
+        for key in keys:
+            fmt.log_info(key)
+        fmt.success(data, next_steps=next_steps)
+        return 0
     else:
-        fmt.log_fail("local: not found")
+        fmt.error("CONFIG_KEYS_FAILED", str(data), next_steps=next_steps)
+        return 1
 
-    if resolved["factory"]:
-        fmt.log_ok(f"factory: {resolved['factory']}")
+
+def cmd_config_get(fmt: OutputFormatter, args: argparse.Namespace) -> int:
+    """Get a config value."""
+    from .config import run_config
+
+    key = getattr(args, "key", None)
+
+    success, data, next_steps = run_config("get", key=key)
+
+    if success and isinstance(data, dict):
+        fmt.log_ok(f"{data.get('key')}: {data.get('value')}")
+        fmt.success(data, next_steps=next_steps)
+        return 0
     else:
-        fmt.log_info("factory: not configured")
-
-    # Structured output
-    data = {
-        "config_file": info["config_file"],
-        "skill_root": info["skill_root"],
-        "user_config": info["user_config"],
-        "resolved": {k: str(v) if v else None for k, v in info["resolved"].items()},
-    }
-
-    fmt.success(data, next_steps=["rhdh-plugin config set <key> <path>", "rhdh-plugin doctor"])
-    return 0
+        fmt.error("CONFIG_GET_FAILED", str(data), next_steps=next_steps)
+        return 1
 
 
 def cmd_config_set(fmt: OutputFormatter, args: argparse.Namespace) -> int:
     """Set a config value."""
-    success, message = config_set(args.key, args.path)
+    from .config import run_config
 
-    if success:
-        fmt.log_ok(message)
-        fmt.success(
-            {"key": args.key, "path": args.path, "message": message},
-            next_steps=["rhdh-plugin config show", "rhdh-plugin doctor"],
-        )
+    key = getattr(args, "key", None)
+    value = getattr(args, "value", None)
+    global_ = getattr(args, "global_", False)
+
+    success, data, next_steps = run_config("set", key=key, value=value, global_=global_)
+
+    if success and isinstance(data, dict):
+        scope = data.get("scope", "project")
+        fmt.log_ok(f"Set {data.get('key')} = {data.get('value')} ({scope} config)")
+        fmt.success(data, next_steps=next_steps)
         return 0
     else:
+        fmt.error("CONFIG_SET_FAILED", str(data), next_steps=next_steps)
+        return 1
+
+
+# =============================================================================
+# Setup Commands
+# =============================================================================
+
+
+def cmd_setup_submodule_list(fmt: OutputFormatter, _args: argparse.Namespace) -> int:
+    """List available repositories for submodule setup."""
+    fmt.header("Available Repositories")
+
+    repos = list_submodule_repos()
+    github_username = get_github_username()
+
+    # Check if any repos need username
+    needs_username = any(r.get("needs_username") for r in repos)
+
+    from .formatters import BLUE, GREEN, NC, RED, YELLOW
+
+    # Show GitHub username status
+    if github_username:
+        fmt.log_info(f"GitHub user: {BLUE}{github_username}{NC}")
+    elif needs_username:
+        fmt.log_warn("GitHub user: not detected (needed for fork repos)")
+        fmt.log_info("Run: gh auth login")
+
+    def format_repo(repo: dict) -> str:
+        status = repo["status"]
+        required = " (required)" if repo["required"] else " (optional)"
+
+        if status == "submodule":
+            color = GREEN
+            status_text = "✓ submodule"
+        elif status == "configured":
+            color = GREEN
+            status_text = "✓ configured"
+        elif status == "directory_exists":
+            color = YELLOW
+            status_text = "⚠ directory exists"
+        else:
+            color = RED if repo["required"] else YELLOW
+            status_text = "✗ not configured"
+
+        lines = [f"{color}{repo['name']:<35}{NC} {status_text}{required}"]
+        lines.append(f"    {repo['description']}")
+        if repo["path"]:
+            lines.append(f"    Path: {repo['path']}")
+        if repo.get("has_fork"):
+            if repo.get("origin"):
+                lines.append(f"    Fork: {repo['origin']}")
+            else:
+                lines.append(f"    {YELLOW}Fork: requires GitHub username{NC}")
+        return "\n".join(lines)
+
+    fmt.render_list(repos, format_repo)
+
+    data = {
+        "github_username": github_username,
+        "repos": repos,
+    }
+
+    # Determine next steps based on status
+    unconfigured_required = [r for r in repos if r["status"] == "not_configured" and r["required"]]
+    if needs_username and not github_username:
+        next_steps = [
+            "gh auth login",
+            "rhdh-plugin config set github.username <your-username>",
+        ]
+    elif unconfigured_required:
+        next_steps = [
+            "rhdh-plugin setup submodule add --all",
+            f"rhdh-plugin setup submodule add {unconfigured_required[0]['name']}",
+        ]
+    else:
+        next_steps = ["rhdh-plugin", "rhdh-plugin workspace list"]
+
+    fmt.success(data, next_steps=next_steps)
+    return 0
+
+
+def cmd_setup_submodule_add(fmt: OutputFormatter, args: argparse.Namespace) -> int:
+    """Add repository as submodule."""
+    add_all = getattr(args, "all", False)
+    name = getattr(args, "name", None)
+    dry_run = getattr(args, "dry_run", False)
+
+    # Detect GitHub username (needed for repos with forks)
+    github_username = get_github_username()
+    if github_username:
+        fmt.log_info(f"GitHub user: {github_username}")
+        # Save to config if not already saved
+        save_github_username(github_username)
+
+    if add_all:
+        # Add all required repos
+        fmt.header("Setting up all required repositories")
+
+        results = []
+        all_success = True
+
+        for repo_name, repo_info in SUBMODULE_REPOS.items():
+            if not repo_info["required"]:
+                continue
+
+            fmt.log_info(f"Setting up: {repo_name}")
+            success, data, _ = setup_submodule(
+                repo_name, dry_run=dry_run, github_username=github_username
+            )
+
+            if success:
+                if isinstance(data, dict):
+                    status = data.get("status", "unknown")
+                    if status == "already_configured":
+                        fmt.log_ok("  Already configured")
+                    elif dry_run:
+                        fmt.log_info("  Would create submodule")
+                    else:
+                        fmt.log_ok(f"  Created at: {data.get('path')}")
+            else:
+                fmt.log_fail(f"  Failed: {data}")
+                all_success = False
+
+            results.append({"name": repo_name, "success": success, "data": data})
+
+        output_data: dict[str, Any] = {
+            "github_username": github_username,
+            "results": results,
+            "all_success": all_success,
+        }
+
+        if all_success:
+            fmt.success(output_data, next_steps=["rhdh-plugin", "rhdh-plugin doctor"])
+            return 0
+        else:
+            fmt.success(output_data, next_steps=["rhdh-plugin setup submodule list"])
+            return 1
+
+    elif name:
+        # Add single repo
+        fmt.header(f"Setting up: {name}")
+
+        success, data, next_steps = setup_submodule(
+            name, dry_run=dry_run, github_username=github_username
+        )
+
+        if success:
+            if isinstance(data, dict):
+                status = data.get("status", "unknown")
+                if status == "already_configured":
+                    fmt.log_ok("Already configured as submodule")
+                elif dry_run:
+                    for action in data.get("actions", []):
+                        fmt.log_info(action)
+                else:
+                    fmt.log_ok(f"Created at: {data.get('path')}")
+                    if data.get("upstream"):
+                        fmt.log_ok(f"Upstream: {data.get('upstream')}")
+            fmt.success(data, next_steps=next_steps)
+            return 0
+        else:
+            fmt.error("SUBMODULE_SETUP_FAILED", str(data), next_steps=next_steps)
+            return 1
+
+    else:
         fmt.error(
-            "CONFIG_SET_FAILED",
-            message,
-            next_steps=["Valid keys: overlay, local, factory"],
+            "MISSING_ARGUMENT",
+            "Specify repository name or use --all",
+            next_steps=[
+                "rhdh-plugin setup submodule list",
+                "rhdh-plugin setup submodule add --all",
+            ],
         )
         return 1
 
@@ -508,14 +731,13 @@ def cmd_workspace_list(fmt: OutputFormatter, _args: argparse.Namespace) -> int:
         )
 
     # Render items in human mode
-    if fmt.is_human:
-        print()
-        for item in items:
-            from .formatters import BLUE, NC
+    from .formatters import BLUE, NC
 
-            print(f"  {BLUE}{item['name']:<30}{NC} {item['detail']}")
-        print()
-        print(f"  Total: {len(items)} workspaces")
+    fmt.render_list(
+        items,
+        lambda i: f"{BLUE}{i['name']:<30}{NC} {i['detail']}",
+        summary=f"Total: {len(items)} workspaces",
+    )
 
     data = {
         "overlay_repo": str(overlay_repo),
@@ -612,11 +834,11 @@ def cmd_log_show(fmt: OutputFormatter, args: argparse.Namespace) -> int:
 
     fmt.header("Worklog")
 
-    if fmt.is_human:
-        for entry in entries:
-            print(f"  {format_entry_human(entry)}")
-        print()
-        print(f"  Showing {len(entries)} entries")
+    fmt.render_list(
+        entries,
+        lambda e: format_entry_human(e),
+        summary=f"Showing {len(entries)} entries",
+    )
 
     fmt.success(
         {"count": len(entries), "entries": entries},
@@ -642,11 +864,11 @@ def cmd_log_search(fmt: OutputFormatter, args: argparse.Namespace) -> int:
 
     fmt.header(f"Search: {query}")
 
-    if fmt.is_human:
-        for entry in matches:
-            print(f"  {format_entry_human(entry)}")
-        print()
-        print(f"  Found {len(matches)} matches")
+    fmt.render_list(
+        matches,
+        lambda e: format_entry_human(e),
+        summary=f"Found {len(matches)} matches",
+    )
 
     fmt.success(
         {"query": query, "count": len(matches), "entries": matches},
@@ -697,9 +919,10 @@ def cmd_todo_list(fmt: OutputFormatter, args: argparse.Namespace) -> int:
 
     fmt.header("Todos")
 
+    from .formatters import GREEN, NC, YELLOW
+
     items = []
     for todo in todos:
-        status = "[x]" if todo.done else "[ ]"
         items.append(
             {
                 "slug": todo.slug,
@@ -709,19 +932,16 @@ def cmd_todo_list(fmt: OutputFormatter, args: argparse.Namespace) -> int:
                 "context": todo.context,
             }
         )
-        if fmt.is_human:
-            from .formatters import GREEN, NC, YELLOW
 
-            color = GREEN if todo.done else YELLOW
-            context_str = f" ({todo.context})" if todo.context else ""
-            print(f"  {color}{status}{NC} {todo.title}{context_str}")
-            print(f"      slug: {todo.slug}")
+    def format_todo(item: dict) -> str:
+        status = "[x]" if item["done"] else "[ ]"
+        color = GREEN if item["done"] else YELLOW
+        context_str = f" ({item['context']})" if item["context"] else ""
+        return f"{color}{status}{NC} {item['title']}{context_str}\n      slug: {item['slug']}"
 
-    if fmt.is_human:
-        print()
-        pending = sum(1 for t in todos if not t.done)
-        done = sum(1 for t in todos if t.done)
-        print(f"  {pending} pending, {done} done")
+    pending = sum(1 for t in todos if not t.done)
+    done = sum(1 for t in todos if t.done)
+    fmt.render_list(items, format_todo, summary=f"{pending} pending, {done} done")
 
     fmt.success(
         {"count": len(todos), "items": items},
@@ -784,9 +1004,10 @@ def cmd_todo_show(fmt: OutputFormatter, _args: argparse.Namespace) -> int:
     content = todo_show_raw()
     file_path = get_todo_file_path()
 
-    if fmt.is_human:
-        print(content)
-    else:
+    fmt.render_raw(content)
+
+    # In JSON mode, also output structured data
+    if not fmt.is_human:
         fmt.success(
             {"file": str(file_path), "content": content},
             next_steps=["rhdh-plugin todo list", "rhdh-plugin todo add <title>"],
@@ -870,16 +1091,85 @@ EXAMPLES:
     config_parser = subparsers.add_parser("config", help="Configuration management")
     config_subparsers = config_parser.add_subparsers(dest="config_command", metavar="SUBCOMMAND")
 
+    # config init
     config_init_parser = config_subparsers.add_parser("init", help="Initialize configuration file")
+    config_init_parser.add_argument(
+        "--force", "-f", action="store_true", help="Overwrite existing config"
+    )
+    config_init_parser.add_argument(
+        "--global",
+        "-g",
+        dest="global_",
+        action="store_true",
+        help="Initialize user config instead of project",
+    )
     config_init_parser.set_defaults(func=cmd_config_init)
 
+    # config show
     config_show_parser = config_subparsers.add_parser("show", help="Show current configuration")
+    config_show_parser.add_argument(
+        "--global", "-g", dest="global_", action="store_true", help="Show only user config"
+    )
     config_show_parser.set_defaults(func=cmd_config_show)
 
+    # config keys
+    config_keys_parser = config_subparsers.add_parser("keys", help="List all config keys")
+    config_keys_parser.add_argument(
+        "--global", "-g", dest="global_", action="store_true", help="Show only user config keys"
+    )
+    config_keys_parser.set_defaults(func=cmd_config_keys)
+
+    # config get
+    config_get_parser = config_subparsers.add_parser("get", help="Get a config value")
+    config_get_parser.add_argument("key", help="Key in dot notation (e.g., repos.overlay)")
+    config_get_parser.set_defaults(func=cmd_config_get)
+
+    # config set
     config_set_parser = config_subparsers.add_parser("set", help="Set config value")
-    config_set_parser.add_argument("key", help="Config key (overlay, local, factory)")
-    config_set_parser.add_argument("path", help="Path to set")
+    config_set_parser.add_argument("key", help="Key in dot notation (e.g., repos.overlay)")
+    config_set_parser.add_argument("value", help="Value to set (JSON parsed if valid)")
+    config_set_parser.add_argument(
+        "--global",
+        "-g",
+        dest="global_",
+        action="store_true",
+        help="Set in user config instead of project",
+    )
     config_set_parser.set_defaults(func=cmd_config_set)
+
+    # Setup
+    setup_parser = subparsers.add_parser("setup", help="Environment setup commands")
+    setup_subparsers = setup_parser.add_subparsers(dest="setup_command", metavar="SUBCOMMAND")
+
+    # setup submodule
+    submodule_parser = setup_subparsers.add_parser("submodule", help="Manage repository submodules")
+    submodule_subparsers = submodule_parser.add_subparsers(
+        dest="submodule_command", metavar="SUBCOMMAND"
+    )
+
+    # setup submodule list
+    submodule_list_parser = submodule_subparsers.add_parser(
+        "list", help="List available repositories"
+    )
+    submodule_list_parser.set_defaults(func=cmd_setup_submodule_list)
+
+    # setup submodule add
+    submodule_add_parser = submodule_subparsers.add_parser(
+        "add", help="Add repository as submodule"
+    )
+    submodule_add_parser.add_argument(
+        "name", nargs="?", help="Repository name (e.g., rhdh-plugin-export-overlays)"
+    )
+    submodule_add_parser.add_argument(
+        "--all", "-a", action="store_true", help="Add all required repositories"
+    )
+    submodule_add_parser.add_argument(
+        "--dry-run",
+        "-n",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
+    submodule_add_parser.set_defaults(func=cmd_setup_submodule_add)
 
     # Workspace
     workspace_parser = subparsers.add_parser("workspace", help="Workspace operations")
@@ -1022,6 +1312,35 @@ def main(argv: list[str] | None = None) -> int:
                 "rhdh-plugin todo list",
                 "rhdh-plugin todo add <title>",
                 "rhdh-plugin todo show",
+            ],
+        )
+        return 1
+
+    # Setup without subcommand
+    if args.command == "setup" and getattr(args, "setup_command", None) is None:
+        fmt.error(
+            "MISSING_SUBCOMMAND",
+            "Setup subcommand required",
+            next_steps=[
+                "rhdh-plugin setup submodule list",
+                "rhdh-plugin setup submodule add --all",
+            ],
+        )
+        return 1
+
+    # Setup submodule without subcommand
+    if (
+        args.command == "setup"
+        and getattr(args, "setup_command", None) == "submodule"
+        and getattr(args, "submodule_command", None) is None
+    ):
+        fmt.error(
+            "MISSING_SUBCOMMAND",
+            "Submodule subcommand required",
+            next_steps=[
+                "rhdh-plugin setup submodule list",
+                "rhdh-plugin setup submodule add --all",
+                "rhdh-plugin setup submodule add <name>",
             ],
         )
         return 1

@@ -10,20 +10,30 @@ from unittest.mock import patch
 
 import pytest
 
-# Path to the skill root
-SKILL_ROOT = Path(__file__).parent.parent
+# Path to the project root
+PROJECT_ROOT = Path(__file__).parent.parent
 
-# Add package to path for testing
-if str(SKILL_ROOT) not in sys.path:
-    sys.path.insert(0, str(SKILL_ROOT))
-SCRIPTS_DIR = SKILL_ROOT / "scripts"
-SKILLS_DIR = SKILL_ROOT / "skills" / "rhdh-plugin"
+# Path to the skill directory (where rhdh_plugin package now lives)
+SKILL_DIR = PROJECT_ROOT / "skills" / "rhdh-plugin"
+
+# Add skill directory to path for testing
+if str(SKILL_DIR) not in sys.path:
+    sys.path.insert(0, str(SKILL_DIR))
+
+SCRIPTS_DIR = SKILL_DIR / "scripts"
+SKILLS_DIR = SKILL_DIR  # Same as SKILL_DIR now
 
 
 @pytest.fixture
 def skill_root():
-    """Return the skill root path."""
-    return SKILL_ROOT
+    """Return the project root path."""
+    return PROJECT_ROOT
+
+
+@pytest.fixture
+def skill_dir():
+    """Return the skill directory path (skills/rhdh-plugin)."""
+    return SKILL_DIR
 
 
 @pytest.fixture
@@ -43,13 +53,18 @@ def isolated_env(tmp_path, monkeypatch):
     """Create an isolated environment with temp directories.
 
     Sets up:
-    - Temporary config directory (~/.config/rhdh-plugin-skill/)
+    - Temporary config directory (~/.config/rhdh-plugin/)
+    - Temporary project config directory (.rhdh-plugin/)
     - Isolated working directory
     - Mock HOME environment
     """
-    # Create temp config dir
-    config_dir = tmp_path / ".config" / "rhdh-plugin-skill"
+    # Create temp user config dir (matches config.py: .config/rhdh-plugin)
+    config_dir = tmp_path / ".config" / "rhdh-plugin"
     config_dir.mkdir(parents=True)
+
+    # Create temp project config dir
+    project_config_dir = tmp_path / ".rhdh-plugin"
+    project_config_dir.mkdir(parents=True)
 
     # Create a mock repo structure
     repo_dir = tmp_path / "repo"
@@ -109,6 +124,7 @@ def isolated_env(tmp_path, monkeypatch):
     yield {
         "root": tmp_path,
         "config_dir": config_dir,
+        "project_config_dir": project_config_dir,
         "repo_dir": repo_dir,
         "overlay_dir": overlay_dir,
         "local_dir": local_dir,
@@ -147,29 +163,61 @@ def run_cli_python(*args, env=None, isolated_env=None):
     if env:
         env_patches.update(env)
 
-    # Reload config module to pick up new HOME
+    # Patch config paths to isolated environment
     if isolated_env:
-        # Update the module-level constants
         new_home = Path(isolated_env["root"])
-        config_module.USER_CONFIG_DIR = new_home / ".config" / "rhdh-plugin-skill"
+        # Patch user config paths
+        config_module.USER_CONFIG_DIR = new_home / ".config" / "rhdh-plugin"
         config_module.USER_CONFIG_FILE = config_module.USER_CONFIG_DIR / "config.json"
+
+    # Mock find_git_root to return isolated dir (prevents writes to real project)
+    mock_git_root = Path(isolated_env["root"]) if isolated_env else None
 
     with patch.dict(os.environ, env_patches, clear=False):
         with patch("sys.stdout", stdout_capture):
-            try:
-                returncode = main(list(args))
-            except SystemExit as e:
-                returncode = e.code if isinstance(e.code, int) else 0
+            # Patch find_git_root if we have an isolated env
+            if mock_git_root:
+                with patch.object(config_module, "find_git_root", return_value=mock_git_root):
+                    try:
+                        returncode = main(list(args))
+                    except SystemExit as e:
+                        returncode = e.code if isinstance(e.code, int) else 0
+            else:
+                try:
+                    returncode = main(list(args))
+                except SystemExit as e:
+                    returncode = e.code if isinstance(e.code, int) else 0
 
     return CLIResult(returncode, stdout_capture.getvalue())
 
 
 @pytest.fixture
-def cli(isolated_env, monkeypatch):
+def cli(isolated_env):
     """Fixture providing the run_cli function configured for the isolated env."""
 
     def _run_cli(*args, env=None):
         # Merge env with any existing overrides
+        full_env = {}
+        if env:
+            full_env.update(env)
+        return run_cli_python(*args, env=full_env, isolated_env=isolated_env)
+
+    return _run_cli
+
+
+@pytest.fixture
+def unconfigured_cli(isolated_env, monkeypatch):
+    """Fixture providing CLI with no repos configured.
+
+    Use this to test the "needs setup" state without manual monkeypatching.
+    Mocks get_overlay_repo and get_local_repo to return None.
+    """
+    from rhdh_plugin import cli as cli_module
+
+    monkeypatch.setattr(cli_module, "get_overlay_repo", lambda: None)
+    monkeypatch.setattr(cli_module, "get_local_repo", lambda: None)
+
+    def _run_cli(*args, env=None):
         full_env = {}
         if env:
             full_env.update(env)

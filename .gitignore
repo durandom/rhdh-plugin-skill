@@ -32,3 +32,4 @@ Thumbs.db
 
 # Planning docs (local only)
 .planning/
+.rhdh-plugin/

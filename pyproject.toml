@@ -9,6 +9,7 @@ requires-python = ">=3.9"
 # No runtime dependencies - stdlib only!
 
 [tool.setuptools.packages.find]
+where = ["skills/rhdh-plugin"]
 include = ["rhdh_plugin*"]
 
 [project.optional-dependencies]

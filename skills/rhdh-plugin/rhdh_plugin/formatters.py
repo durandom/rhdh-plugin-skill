@@ -12,7 +12,10 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def detect_output_mode() -> str:
@@ -249,3 +252,63 @@ class OutputFormatter:
         if self.is_human:
             print(f"  {BLUE}→{NC} {message}")
             self._has_human_output = True
+
+    # =========================================================================
+    # Rendering Methods (human mode only, ignored in JSON)
+    # =========================================================================
+
+    def render_list(
+        self,
+        items: list[dict],
+        format_fn: Callable[[dict], str],
+        *,
+        summary: str | None = None,
+    ) -> None:
+        """Render a list of items (human mode only, ignored in JSON).
+
+        Args:
+            items: List of item dicts to render
+            format_fn: Function that takes an item dict and returns formatted string
+            summary: Optional summary line (e.g., "Total: 5 items")
+        """
+        if not self.is_human:
+            return
+
+        print()
+        for item in items:
+            print(f"  {format_fn(item)}")
+        if summary:
+            print()
+            print(f"  {summary}")
+        self._has_human_output = True
+
+    def render_banner(
+        self,
+        message: str,
+        call_to_action: str | None = None,
+        style: str = "warn",
+    ) -> None:
+        """Render a call-to-action banner (human mode only, ignored in JSON).
+
+        Args:
+            message: Main message text
+            call_to_action: Optional command to show
+            style: "warn" (yellow) or "info" (blue)
+        """
+        if not self.is_human:
+            return
+
+        color = YELLOW if style == "warn" else BLUE
+        print()
+        print(f"{color}{message}{NC}")
+        if call_to_action:
+            print(f"  {call_to_action}")
+        self._has_human_output = True
+
+    def render_raw(self, content: str) -> None:
+        """Render raw content (human mode only, ignored in JSON)."""
+        if not self.is_human:
+            return
+
+        print(content)
+        self._has_human_output = True

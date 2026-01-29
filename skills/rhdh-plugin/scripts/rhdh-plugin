@@ -9,9 +9,9 @@ This script allows running the CLI directly without python -m:
 import sys
 from pathlib import Path
 
-# Add the package directory to the path
-package_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(package_dir))
+# Add the skill directory to the path (where rhdh_plugin package lives)
+skill_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(skill_dir))
 
 from rhdh_plugin.cli import main  # noqa: E402
 

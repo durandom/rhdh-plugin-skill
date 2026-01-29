@@ -56,6 +56,24 @@ class TestCliStatus:
         assert response is not None
         assert "next_steps" in response
 
+    def test_status_needs_setup_points_to_doctor(self, unconfigured_cli):
+        """When needs_setup is true, status should point to doctor command.
+
+        Doctor command has all the setup guidance - status just redirects there.
+        """
+        result = unconfigured_cli()
+
+        response = parse_response(result)
+        assert response is not None
+        assert response["data"]["needs_setup"] is True
+
+        # next_steps should include doctor command
+        assert "rhdh-plugin doctor" in response["next_steps"]
+
+        # Should NOT include setup_options or doctor_workflow (that's doctor's job)
+        assert "setup_options" not in response["data"]
+        assert "doctor_workflow" not in response["data"]
+
 
 class TestCliDoctor:
     """Test CLI doctor command."""
@@ -88,6 +106,27 @@ class TestCliDoctor:
         assert response is not None
         assert "all_passed" in response["data"]
 
+    def test_doctor_points_to_workflow_when_issues_found(self, unconfigured_cli):
+        """When doctor finds issues, it should point to the workflow file.
+
+        This enables agents to read the workflow for remediation steps.
+        """
+        result = unconfigured_cli("doctor")
+
+        response = parse_response(result)
+        assert response is not None
+        assert response["data"]["all_passed"] is False
+
+        # Should include workflow path for agentic discovery
+        assert "workflow" in response["data"]
+        assert response["data"]["workflow"] == "workflows/doctor.md"
+
+        # Should include instruction for agent
+        assert "agent_instruction" in response["data"]
+
+        # next_steps should point to reading the workflow
+        assert any("workflow" in step.lower() for step in response["next_steps"])
+
 
 class TestCliConfig:
     """Test CLI config commands."""
@@ -113,7 +152,9 @@ class TestCliConfig:
 
         response = parse_response(result)
         assert response is not None
-        assert "config_file" in response["data"]
+        # Layered config returns separate paths for project and user config
+        assert "project_config_path" in response["data"]
+        assert "user_config_path" in response["data"]
         assert "resolved" in response["data"]
 
     def test_config_set_updates_value(self, cli, isolated_env):
@@ -129,28 +170,33 @@ class TestCliConfig:
         response = parse_response(result)
         assert response is not None
         assert response["success"] is True
-        assert response["data"]["key"] == "overlay"
+        # Shorthand 'overlay' maps to 'repos.overlay'
+        assert response["data"]["key"] == "repos.overlay"
 
-    def test_config_set_validates_path(self, cli, isolated_env):
-        """config set should validate path exists."""
+    def test_config_set_accepts_any_path(self, cli, isolated_env):
+        """config set accepts paths without validation (paths are validated at use time)."""
+        # The layered config design doesn't validate paths on set
+        # Validation happens when the path is actually used (e.g., workspace list)
         result = cli("config", "set", "overlay", "/nonexistent/path")
 
-        assert result.returncode != 0
+        assert result.returncode == 0
 
         response = parse_response(result)
         assert response is not None
-        assert response["success"] is False
-        assert "error" in response
+        assert response["success"] is True
+        assert response["data"]["value"] == "/nonexistent/path"
 
-    def test_config_set_validates_key(self, cli, isolated_env):
-        """config set should validate key name."""
-        result = cli("config", "set", "invalid_key", "/tmp")
+    def test_config_set_accepts_arbitrary_keys(self, cli, isolated_env):
+        """config set accepts any dot-notation key (flexible schema)."""
+        # The layered config design allows arbitrary keys for extensibility
+        result = cli("config", "set", "custom.setting", "value")
 
-        assert result.returncode != 0
+        assert result.returncode == 0
 
         response = parse_response(result)
         assert response is not None
-        assert response["success"] is False
+        assert response["success"] is True
+        assert response["data"]["key"] == "custom.setting"
 
 
 class TestCliWorkspace:
@@ -158,11 +204,11 @@ class TestCliWorkspace:
 
     def test_workspace_list_works(self, cli, isolated_env):
         """workspace list should show workspaces."""
-        # Configure the overlay repo
-        cli("config", "init")
-        cli("config", "set", "overlay", str(isolated_env["overlay_dir"]))
+        # Use env var for reliable repo discovery in tests
+        # (config-based discovery requires consistent find_git_root mocking)
+        env = {"RHDH_OVERLAY_REPO": str(isolated_env["overlay_dir"])}
 
-        result = cli("workspace", "list")
+        result = cli("workspace", "list", env=env)
 
         assert result.returncode == 0
 
