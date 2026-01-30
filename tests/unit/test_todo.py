@@ -9,12 +9,13 @@ import pytest
 
 @pytest.fixture
 def temp_config_dir():
-    """Create a temporary config directory."""
+    """Create a temporary config directory (simulating no git repo)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         config_dir = Path(tmpdir) / "config"
         config_dir.mkdir()
-        with patch("rhdh_plugin.todo.USER_CONFIG_DIR", config_dir):
-            with patch("rhdh_plugin.todo.TODO_FILE", config_dir / "TODO.md"):
+        # Mock find_git_root to return None (no git repo → uses USER_CONFIG_DIR)
+        with patch("rhdh_plugin.todo.find_git_root", return_value=None):
+            with patch("rhdh_plugin.todo.USER_CONFIG_DIR", config_dir):
                 yield config_dir
 
 
@@ -43,10 +44,10 @@ class TestListTodos:
     """Tests for list_todos function."""
 
     def test_creates_file_if_not_exists(self, temp_config_dir):
-        from rhdh_plugin.todo import TODO_FILE, list_todos
+        from rhdh_plugin.todo import get_todo_file, list_todos
 
         list_todos()
-        assert TODO_FILE.exists()
+        assert get_todo_file().exists()
 
     def test_returns_empty_list_for_new_file(self, temp_config_dir):
         from rhdh_plugin.todo import list_todos
@@ -55,9 +56,9 @@ class TestListTodos:
         assert todos == []
 
     def test_parses_pending_todo(self, temp_config_dir):
-        from rhdh_plugin.todo import TODO_FILE, list_todos
+        from rhdh_plugin.todo import get_todo_file, list_todos
 
-        TODO_FILE.write_text("""# Todos
+        get_todo_file().write_text("""# Todos
 
 ---
 
@@ -74,9 +75,9 @@ Description here.
         assert todos[0].done is False
 
     def test_parses_done_todo(self, temp_config_dir):
-        from rhdh_plugin.todo import TODO_FILE, list_todos
+        from rhdh_plugin.todo import get_todo_file, list_todos
 
-        TODO_FILE.write_text("""# Todos
+        get_todo_file().write_text("""# Todos
 
 ---
 
@@ -94,9 +95,9 @@ Done!
         assert todos[0].completed == "2025-01-02"
 
     def test_excludes_template_section(self, temp_config_dir):
-        from rhdh_plugin.todo import TODO_FILE, list_todos
+        from rhdh_plugin.todo import get_todo_file, list_todos
 
-        TODO_FILE.write_text("""# Todos
+        get_todo_file().write_text("""# Todos
 
 ---
 
@@ -117,9 +118,9 @@ Done!
         assert todos[0].title == "Real todo"
 
     def test_filter_pending_only(self, temp_config_dir):
-        from rhdh_plugin.todo import TODO_FILE, list_todos
+        from rhdh_plugin.todo import get_todo_file, list_todos
 
-        TODO_FILE.write_text("""# Todos
+        get_todo_file().write_text("""# Todos
 
 ---
 
@@ -192,12 +193,12 @@ class TestAddNote:
     """Tests for add_note function."""
 
     def test_adds_note_to_todo(self, temp_config_dir):
-        from rhdh_plugin.todo import TODO_FILE, add_note, add_todo
+        from rhdh_plugin.todo import add_note, add_todo, get_todo_file
 
         add_todo("Task with notes")
         add_note("task-with", "This is a note")
 
-        content = TODO_FILE.read_text()
+        content = get_todo_file().read_text()
         assert "This is a note" in content
 
     def test_returns_none_for_unknown_slug(self, temp_config_dir):

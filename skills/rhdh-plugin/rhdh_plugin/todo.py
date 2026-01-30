@@ -1,7 +1,7 @@
 """Todo management for rhdh-plugin CLI.
 
 Section-based markdown todo tracker.
-Stored in ~/.config/rhdh-plugin-skill/TODO.md
+Stored in .rhdh-plugin/TODO.md (project) or ~/.config/rhdh-plugin/TODO.md (fallback).
 """
 
 from __future__ import annotations
@@ -12,9 +12,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from .config import USER_CONFIG_DIR
+from .config import USER_CONFIG_DIR, find_git_root, get_project_config_dir
 
-TODO_FILE = USER_CONFIG_DIR / "TODO.md"
+TODO_FILENAME = "TODO.md"
+
+
+def get_todo_file() -> Path:
+    """Get the todo file path.
+
+    Uses project config dir (.rhdh-plugin/) if in a git repo,
+    otherwise falls back to user config dir.
+    """
+    if find_git_root():
+        return get_project_config_dir() / TODO_FILENAME
+    return USER_CONFIG_DIR / TODO_FILENAME
+
 
 # Pattern for H2 todo headers: ## [ ] Title or ## [x] Title
 TODO_HEADER_PATTERN = re.compile(r"^## \[([ x])\] (.+)$")
@@ -73,10 +85,11 @@ def slugify(title: str) -> str:
 
 def _ensure_todo_file() -> Path:
     """Ensure todo file exists with template, return path."""
-    USER_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    if not TODO_FILE.exists():
-        TODO_FILE.write_text(DEFAULT_TODO_CONTENT)
-    return TODO_FILE
+    todo_file = get_todo_file()
+    todo_file.parent.mkdir(parents=True, exist_ok=True)
+    if not todo_file.exists():
+        todo_file.write_text(DEFAULT_TODO_CONTENT)
+    return todo_file
 
 
 def _parse_todos(content: str) -> list[TodoItem]:
@@ -172,8 +185,8 @@ def list_todos(include_done: bool = True) -> list[TodoItem]:
     Returns:
         List of TodoItem objects
     """
-    _ensure_todo_file()
-    content = TODO_FILE.read_text()
+    todo_file = _ensure_todo_file()
+    content = todo_file.read_text()
     todos = _parse_todos(content)
 
     if not include_done:
@@ -216,8 +229,8 @@ def add_todo(title: str, context: Optional[str] = None) -> TodoItem:
     Returns:
         The created TodoItem
     """
-    _ensure_todo_file()
-    content = TODO_FILE.read_text()
+    todo_file = _ensure_todo_file()
+    content = todo_file.read_text()
     lines = content.split("\n")
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -260,7 +273,7 @@ def add_todo(title: str, context: Optional[str] = None) -> TodoItem:
 
     # Insert new section
     new_lines = lines[:insert_at] + [""] + new_section + lines[insert_at:]
-    TODO_FILE.write_text("\n".join(new_lines))
+    todo_file.write_text("\n".join(new_lines))
 
     return TodoItem(
         slug=slugify(title),
@@ -289,7 +302,8 @@ def mark_done(slug: str) -> Optional[TodoItem]:
     if todo.done:
         return todo  # Already done
 
-    content = TODO_FILE.read_text()
+    todo_file = get_todo_file()
+    content = todo_file.read_text()
     lines = content.split("\n")
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -305,7 +319,7 @@ def mark_done(slug: str) -> Optional[TodoItem]:
             lines.insert(i + 1, f"**Completed:** {today}")
             break
 
-    TODO_FILE.write_text("\n".join(lines))
+    todo_file.write_text("\n".join(lines))
 
     todo.done = True
     todo.completed = today
@@ -326,7 +340,8 @@ def add_note(slug: str, note: str) -> Optional[TodoItem]:
     if not todo:
         return None
 
-    content = TODO_FILE.read_text()
+    todo_file = get_todo_file()
+    content = todo_file.read_text()
     lines = content.split("\n")
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -352,7 +367,7 @@ def add_note(slug: str, note: str) -> Optional[TodoItem]:
                 lines.insert(i, "### Notes")
                 break
 
-    TODO_FILE.write_text("\n".join(lines))
+    todo_file.write_text("\n".join(lines))
 
     # Re-fetch to get updated content
     return get_todo(slug)
@@ -360,10 +375,10 @@ def add_note(slug: str, note: str) -> Optional[TodoItem]:
 
 def show_raw() -> str:
     """Return the raw TODO.md content."""
-    _ensure_todo_file()
-    return TODO_FILE.read_text()
+    todo_file = _ensure_todo_file()
+    return todo_file.read_text()
 
 
 def get_todo_file_path() -> Path:
     """Return the path to the TODO.md file."""
-    return TODO_FILE
+    return get_todo_file()

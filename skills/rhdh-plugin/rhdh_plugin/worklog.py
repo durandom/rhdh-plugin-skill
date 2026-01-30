@@ -1,7 +1,7 @@
 """Worklog management for rhdh-plugin CLI.
 
 Simple append-only JSONL log for tracking work activities.
-Stored in ~/.config/rhdh-plugin-skill/worklog.jsonl
+Stored in .rhdh-plugin/worklog.jsonl (project) or ~/.config/rhdh-plugin/worklog.jsonl (fallback).
 """
 
 from __future__ import annotations
@@ -12,17 +12,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from .config import USER_CONFIG_DIR
+from .config import USER_CONFIG_DIR, find_git_root, get_project_config_dir
 
-WORKLOG_FILE = USER_CONFIG_DIR / "worklog.jsonl"
+WORKLOG_FILENAME = "worklog.jsonl"
+
+
+def get_worklog_file() -> Path:
+    """Get the worklog file path.
+
+    Uses project config dir (.rhdh-plugin/) if in a git repo,
+    otherwise falls back to user config dir.
+    """
+    if find_git_root():
+        return get_project_config_dir() / WORKLOG_FILENAME
+    return USER_CONFIG_DIR / WORKLOG_FILENAME
 
 
 def _ensure_worklog() -> Path:
     """Ensure worklog file exists, return path."""
-    USER_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    if not WORKLOG_FILE.exists():
-        WORKLOG_FILE.touch()
-    return WORKLOG_FILE
+    worklog_file = get_worklog_file()
+    worklog_file.parent.mkdir(parents=True, exist_ok=True)
+    if not worklog_file.exists():
+        worklog_file.touch()
+    return worklog_file
 
 
 def add_entry(message: str, tags: Optional[list[str]] = None) -> dict:
@@ -44,7 +56,7 @@ def add_entry(message: str, tags: Optional[list[str]] = None) -> dict:
     if tags:
         entry["tags"] = tags
 
-    with WORKLOG_FILE.open("a") as f:
+    with get_worklog_file().open("a") as f:
         f.write(json.dumps(entry) + "\n")
 
     return entry
@@ -63,7 +75,8 @@ def read_entries(
     Returns:
         List of entry dicts, most recent first
     """
-    if not WORKLOG_FILE.exists():
+    worklog_file = get_worklog_file()
+    if not worklog_file.exists():
         return []
 
     entries = []
@@ -78,7 +91,7 @@ def read_entries(
         except ValueError:
             pass  # Ignore invalid dates
 
-    with WORKLOG_FILE.open() as f:
+    with worklog_file.open() as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -112,13 +125,14 @@ def search_entries(query: str, limit: Optional[int] = None) -> list[dict]:
     Returns:
         List of matching entry dicts, most recent first
     """
-    if not WORKLOG_FILE.exists():
+    worklog_file = get_worklog_file()
+    if not worklog_file.exists():
         return []
 
     pattern = re.compile(re.escape(query), re.IGNORECASE)
     matches = []
 
-    with WORKLOG_FILE.open() as f:
+    with worklog_file.open() as f:
         for line in f:
             line = line.strip()
             if not line:

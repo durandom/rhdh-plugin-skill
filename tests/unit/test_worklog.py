@@ -10,12 +10,13 @@ import pytest
 
 @pytest.fixture
 def temp_config_dir():
-    """Create a temporary config directory."""
+    """Create a temporary config directory (simulating no git repo)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         config_dir = Path(tmpdir) / "config"
         config_dir.mkdir()
-        with patch("rhdh_plugin.worklog.USER_CONFIG_DIR", config_dir):
-            with patch("rhdh_plugin.worklog.WORKLOG_FILE", config_dir / "worklog.jsonl"):
+        # Mock find_git_root to return None (no git repo → uses USER_CONFIG_DIR)
+        with patch("rhdh_plugin.worklog.find_git_root", return_value=None):
+            with patch("rhdh_plugin.worklog.USER_CONFIG_DIR", config_dir):
                 yield config_dir
 
 
@@ -23,34 +24,34 @@ class TestAddEntry:
     """Tests for add_entry function."""
 
     def test_creates_file_if_not_exists(self, temp_config_dir):
-        from rhdh_plugin.worklog import WORKLOG_FILE, add_entry
+        from rhdh_plugin.worklog import add_entry, get_worklog_file
 
         add_entry("Test message")
-        assert WORKLOG_FILE.exists()
+        assert get_worklog_file().exists()
 
     def test_adds_entry_with_timestamp(self, temp_config_dir):
-        from rhdh_plugin.worklog import WORKLOG_FILE, add_entry
+        from rhdh_plugin.worklog import add_entry, get_worklog_file
 
         add_entry("Test message")
-        content = WORKLOG_FILE.read_text()
+        content = get_worklog_file().read_text()
         entry = json.loads(content.strip())
         assert "ts" in entry
         assert entry["msg"] == "Test message"
 
     def test_adds_entry_with_tags(self, temp_config_dir):
-        from rhdh_plugin.worklog import WORKLOG_FILE, add_entry
+        from rhdh_plugin.worklog import add_entry, get_worklog_file
 
         add_entry("Test message", tags=["tag1", "tag2"])
-        content = WORKLOG_FILE.read_text()
+        content = get_worklog_file().read_text()
         entry = json.loads(content.strip())
         assert entry["tags"] == ["tag1", "tag2"]
 
     def test_appends_multiple_entries(self, temp_config_dir):
-        from rhdh_plugin.worklog import WORKLOG_FILE, add_entry
+        from rhdh_plugin.worklog import add_entry, get_worklog_file
 
         add_entry("First")
         add_entry("Second")
-        lines = WORKLOG_FILE.read_text().strip().split("\n")
+        lines = get_worklog_file().read_text().strip().split("\n")
         assert len(lines) == 2
 
 
@@ -82,10 +83,10 @@ class TestReadEntries:
         assert len(entries) == 5
 
     def test_since_filter(self, temp_config_dir):
-        from rhdh_plugin.worklog import WORKLOG_FILE, read_entries
+        from rhdh_plugin.worklog import get_worklog_file, read_entries
 
         # Write entries with known timestamps
-        WORKLOG_FILE.write_text(
+        get_worklog_file().write_text(
             '{"ts": "2025-01-01T00:00:00+00:00", "msg": "Old"}\n'
             '{"ts": "2025-06-01T00:00:00+00:00", "msg": "New"}\n'
         )
