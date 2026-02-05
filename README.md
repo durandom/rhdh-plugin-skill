@@ -54,15 +54,23 @@ The CLI is **stdlib-only** (no dependencies) and runs on any Python 3.9+.
 
 ### Storage Locations
 
-All state is stored in a `.rhdh/` directory at the project root (git repo), with fallback to `~/.config/rhdh/` when outside a repo:
+Data and config are stored separately to avoid scattering logs across repos/worktrees:
 
-| File | Purpose |
-|------|---------|
-| `config.json` | Repo paths, settings |
-| `worklog.jsonl` | Append-only activity log |
-| `TODO.md` | Section-based task tracking |
+| Location | Contents | Purpose |
+|----------|----------|---------|
+| `~/.config/rhdh-skill/` | `worklog.jsonl`, `TODO.md` | Centralized activity tracking |
+| `~/.config/rhdh-skill/config.json` | User config | Global settings |
+| `.rhdh/config.json` | Project config | Per-project repo overrides |
 
-The `.rhdh/` directory should be added to `.gitignore` — it contains session-specific state, not project configuration.
+**Why centralized data?** The worklog and todos track *your* activity across all projects. Storing them per-repo means logs get lost when switching worktrees or deleting clones.
+
+**Override with env var:**
+
+```bash
+export RHDH_SKILL_DATA_DIR=/custom/path
+```
+
+This redirects `worklog.jsonl` and `TODO.md` to the specified directory.
 
 ### Quick Reference
 

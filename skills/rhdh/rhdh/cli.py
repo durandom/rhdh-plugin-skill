@@ -18,6 +18,7 @@ from typing import Any, Optional
 from . import __version__
 from .config import (
     SUBMODULE_REPOS,
+    get_data_dir,
     get_factory_repo,
     get_github_username,
     get_local_repo,
@@ -415,6 +416,14 @@ def cmd_doctor(fmt: OutputFormatter, _args: argparse.Namespace) -> int:
             }
         )
         fmt.log_info("jira: not installed (optional, see references/jira-reference.md)")
+
+    # Data Storage
+    fmt.header("Data Storage")
+    data_dir = get_data_dir()
+    checks.append({"name": "data_dir", "status": "info", "message": str(data_dir)})
+    fmt.log_info(f"Data directory: {data_dir}")
+    fmt.log_info("  (worklog.jsonl, TODO.md)")
+    fmt.log_info("  Override with RHDH_SKILL_DATA_DIR env var")
 
     # Summary
     fmt.header("Summary")

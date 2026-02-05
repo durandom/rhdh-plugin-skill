@@ -47,7 +47,7 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: uv run --with pytest --with pyyaml pytest tests/ -q
+        entry: /opt/homebrew/bin/uv run --with pytest --with pyyaml python -m pytest tests/ -q
         language: system
         types: [python]
         pass_filenames: false

@@ -97,7 +97,7 @@ Plugin onboarding request for XYZ plugin.' | jira issue create \
   --type="Task" \
   --summary="Onboard XYZ plugin to Extensions Catalog" \
   --component="Plugins" \
-  --body=- \
+  --template - \
   --no-input
 ```
 
@@ -109,7 +109,7 @@ echo 'h1. Epic Description' | jira issue create \
   --type="Epic" \
   --summary="Q1 Plugin Onboarding" \
   --custom parent-link="RHIDP-5678" \
-  --body=- \
+  --template - \
   --no-input
 ```
 
@@ -121,18 +121,18 @@ echo 'h1. Task Description' | jira issue create \
   --type="Task" \
   --summary="Onboard AWS ECS plugin" \
   --custom epic-link="RHIDP-1234" \
-  --body=- \
+  --template - \
   --no-input
 ```
 
 ### Body content format
 
-Use **echo piping** (not subshells) to avoid timeouts:
+Use **echo piping** with `--template -` (not subshells) to avoid timeouts:
 
 ```bash
-# ✅ Correct - echo pipe
+# ✅ Correct - echo pipe with --template -
 echo 'h1. Heading
-My content here' | jira issue create ... --body=- --no-input
+My content here' | jira issue create ... --template - --no-input
 
 # ❌ Incorrect - subshell (timeouts)
 jira issue create --body="$(cat <<'EOF'
@@ -215,17 +215,19 @@ jira issue move RHIDP-1234 "Done"
 ### Add comment
 
 ```bash
-jira issue comment add RHIDP-1234 --body "PR merged: https://github.com/..."
+# Positional argument for simple comments
+jira issue comment add RHIDP-1234 "PR merged: https://github.com/..."
 ```
 
 ### Add formatted comment
 
 ```bash
+# Pipe directly to stdin (no --body flag needed)
 echo 'h2. Status Update
 
 * PR: [#1234|https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/1234]
 * Status: Smoke tests passing
-* Next: Awaiting CODEOWNERS approval' | jira issue comment add RHIDP-1234 --body=-
+* Next: Awaiting CODEOWNERS approval' | jira issue comment add RHIDP-1234
 ```
 
 ---
@@ -271,7 +273,7 @@ h2. Checklist
   --type="Task" \
   --summary="[Plugin] Onboard aws-ecs to Extensions Catalog" \
   --component="Plugins" \
-  --body=- \
+  --template - \
   --no-input
 ```
 
@@ -279,7 +281,7 @@ h2. Checklist
 
 ```bash
 jira issue move RHIDP-1234 "Done"
-jira issue comment add RHIDP-1234 --body "PR merged. Plugin available in Extensions Catalog."
+jira issue comment add RHIDP-1234 "PR merged. Plugin available in Extensions Catalog."
 ```
 
 ---

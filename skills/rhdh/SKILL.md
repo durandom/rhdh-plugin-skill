@@ -218,6 +218,18 @@ $RHDH todo show
 - Post-merge follow-ups (verify in staging, remove workarounds)
 - Items that span multiple sessions
 
+### Writing Effective Todos
+
+Todos must be **self-contained**—a new session should understand the task without re-investigating.
+
+| ❌ Too vague | ✅ Actionable |
+|-------------|---------------|
+| Fix #1875 version mismatch | Fix #1875 (lightspeed): bump `1.3.0→1.4.0` in `workspace.yaml` like #1903 |
+| Add /ok-to-test to #1921 | Add /ok-to-test to #1921 (techdocs) — smoke tests ready, needs external trigger |
+| Review #1906 SonarCloud | Review #1906 (catalog): SonarCloud blocked on coverage — check if test file missing |
+
+**Include:** PR number, plugin name, specific action, and *why* it's needed.
+
 </tracking_system>
 
 <reference_index>

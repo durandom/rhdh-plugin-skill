@@ -3,21 +3,18 @@
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 
 @pytest.fixture
-def temp_config_dir():
-    """Create a temporary config directory (simulating no git repo)."""
+def temp_config_dir(monkeypatch):
+    """Create a temporary data directory using RHDH_SKILL_DATA_DIR env var."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        config_dir = Path(tmpdir) / "config"
+        config_dir = Path(tmpdir) / "data"
         config_dir.mkdir()
-        # Mock find_git_root to return None (no git repo → uses USER_CONFIG_DIR)
-        with patch("rhdh.worklog.find_git_root", return_value=None):
-            with patch("rhdh.worklog.USER_CONFIG_DIR", config_dir):
-                yield config_dir
+        monkeypatch.setenv("RHDH_SKILL_DATA_DIR", str(config_dir))
+        yield config_dir
 
 
 class TestAddEntry:

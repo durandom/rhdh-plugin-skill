@@ -1,7 +1,7 @@
 """Todo management for rhdh CLI.
 
 Section-based markdown todo tracker.
-Stored in .rhdh/TODO.md (project) or ~/.config/rhdh/TODO.md (fallback).
+Stored in ~/.config/rhdh/TODO.md (or RHDH_DATA_DIR if set).
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from .config import USER_CONFIG_DIR, find_git_root, get_project_config_dir
+from .config import get_data_dir
 
 TODO_FILENAME = "TODO.md"
 
@@ -20,12 +20,10 @@ TODO_FILENAME = "TODO.md"
 def get_todo_file() -> Path:
     """Get the todo file path.
 
-    Uses project config dir (.rhdh/) if in a git repo,
-    otherwise falls back to user config dir.
+    Uses centralized data directory to avoid scattering todos
+    across different repos/worktrees.
     """
-    if find_git_root():
-        return get_project_config_dir() / TODO_FILENAME
-    return USER_CONFIG_DIR / TODO_FILENAME
+    return get_data_dir() / TODO_FILENAME
 
 
 # Pattern for H2 todo headers: ## [ ] Title or ## [x] Title

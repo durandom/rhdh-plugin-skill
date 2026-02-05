@@ -63,13 +63,14 @@ def isolated_env(tmp_path, monkeypatch):
     """Create an isolated environment with temp directories.
 
     Sets up:
-    - Temporary config directory (~/.config/rhdh/)
+    - Temporary data directory via RHDH_SKILL_DATA_DIR env var
+    - Temporary config directory (~/.config/rhdh-skill/)
     - Temporary project config directory (.rhdh/)
     - Isolated working directory
     - Mock HOME environment
     """
-    # Create temp user config dir (matches config.py: .config/rhdh)
-    config_dir = tmp_path / ".config" / "rhdh"
+    # Create temp user config/data dir (matches config.py: .config/rhdh-skill)
+    config_dir = tmp_path / ".config" / "rhdh-skill"
     config_dir.mkdir(parents=True)
 
     # Create temp project config dir
@@ -125,6 +126,9 @@ def isolated_env(tmp_path, monkeypatch):
     # Set HOME to temp dir so config goes there
     monkeypatch.setenv("HOME", str(tmp_path))
 
+    # Set RHDH_SKILL_DATA_DIR to isolate worklog/todo from user's real data
+    monkeypatch.setenv("RHDH_SKILL_DATA_DIR", str(config_dir))
+
     # Clear any existing env overrides
     monkeypatch.delenv("RHDH_OVERLAY_REPO", raising=False)
     monkeypatch.delenv("RHDH_LOCAL_REPO", raising=False)
@@ -177,7 +181,7 @@ def run_cli_python(*args, env=None, isolated_env=None):
     if isolated_env:
         new_home = Path(isolated_env["root"])
         # Patch user config paths
-        config_module.USER_CONFIG_DIR = new_home / ".config" / "rhdh"
+        config_module.USER_CONFIG_DIR = new_home / ".config" / "rhdh-skill"
         config_module.USER_CONFIG_FILE = config_module.USER_CONFIG_DIR / "config.json"
 
     # Mock find_git_root to return isolated dir (prevents writes to real project)

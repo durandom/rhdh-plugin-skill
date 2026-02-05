@@ -1,7 +1,7 @@
 """Worklog management for rhdh CLI.
 
 Simple append-only JSONL log for tracking work activities.
-Stored in .rhdh/worklog.jsonl (project) or ~/.config/rhdh/worklog.jsonl (fallback).
+Stored in ~/.config/rhdh/worklog.jsonl (or RHDH_DATA_DIR if set).
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from .config import USER_CONFIG_DIR, find_git_root, get_project_config_dir
+from .config import get_data_dir
 
 WORKLOG_FILENAME = "worklog.jsonl"
 
@@ -20,12 +20,10 @@ WORKLOG_FILENAME = "worklog.jsonl"
 def get_worklog_file() -> Path:
     """Get the worklog file path.
 
-    Uses project config dir (.rhdh/) if in a git repo,
-    otherwise falls back to user config dir.
+    Uses centralized data directory to avoid scattering logs
+    across different repos/worktrees.
     """
-    if find_git_root():
-        return get_project_config_dir() / WORKLOG_FILENAME
-    return USER_CONFIG_DIR / WORKLOG_FILENAME
+    return get_data_dir() / WORKLOG_FILENAME
 
 
 def _ensure_worklog() -> Path:

@@ -6,7 +6,7 @@ Prioritize open PRs in the overlay repository by criticality and surface actiona
 **Read these reference files NOW:**
 
 1. `references/label-priority.md` — PR classification by labels
-2. `references/github-queries.md` — gh CLI patterns for PR analysis
+2. `../../rhdh/references/github-reference.md` — gh CLI patterns
 </required_reading>
 
 <prerequisites>
@@ -179,7 +179,7 @@ gh api repos/$REPO/contents/CODEOWNERS --jq '.content' | base64 -d | grep <works
 
 ### Draft Slack Ping
 
-See `workflows/draft-notification.md` (future) or compose manually:
+See `workflows/draft-notification.md` for structured drafting, or compose manually:
 
 ```
 Hey @handle - PR #1234 needs your attention.
@@ -202,16 +202,42 @@ The triage report should be:
 
 ## Activity Logging
 
-Log triage sessions to track patterns over time:
+**IMPORTANT:** Log all modifying actions taken during triage. This creates an audit trail and enables pattern analysis across sessions.
+
+### Session Summary (always log)
 
 ```bash
-# Session start/end
-rhdh-plugin log add "Triage: <N> open PRs, <X> critical, <Y> medium" --tag triage
+$RHDH log add "Triage: <N> open PRs, <X> critical, <Y> medium" --tag triage
+```
 
-# Actions taken
-rhdh-plugin log add "Triggered /publish on PR #<number> (<plugin-name>)" --tag triage --tag publish
-rhdh-plugin log add "Assigned @<user> to PR #<number>" --tag triage --tag assignment
-rhdh-plugin log add "Pinged @<user> on stale PR #<number>" --tag triage --tag stale
+### Modifying Actions (log each one)
+
+Any action that changes PR state must be logged:
+
+```bash
+# Triggering CI/publish
+$RHDH log add "Triggered /publish on PR #<number> (<plugin-name>)" --tag triage --tag publish --tag <plugin-name>
+
+# Fixing PR issues
+$RHDH log add "Fixed PR #<number> (<plugin>): <description of fix>" --tag triage --tag fix --tag <plugin-name>
+
+# Rebasing PRs
+$RHDH log add "Rebased PR #<number> (<plugin>) on main" --tag triage --tag rebase --tag <plugin-name>
+
+# Assignment changes
+$RHDH log add "Assigned @<user> to PR #<number> (<plugin>)" --tag triage --tag assignment --tag <plugin-name>
+
+# Adding labels
+$RHDH log add "Added label '<label>' to PR #<number>" --tag triage --tag label
+
+# Commenting/pinging
+$RHDH log add "Pinged @<user> on stale PR #<number> (<plugin>)" --tag triage --tag stale --tag <plugin-name>
+
+# Closing PRs
+$RHDH log add "Closed PR #<number> (<plugin>): <reason>" --tag triage --tag close --tag <plugin-name>
+
+# Merging PRs
+$RHDH log add "Merged PR #<number> (<plugin>)" --tag triage --tag merge --tag <plugin-name>
 ```
 
 ## Follow-up Todos
@@ -219,24 +245,36 @@ rhdh-plugin log add "Pinged @<user> on stale PR #<number>" --tag triage --tag st
 Create todos for items that need follow-up beyond this session:
 
 ```bash
+# PR needs fix but blocked/deferred
+$RHDH todo add "Fix <issue> on PR #<number> (<plugin>)" --context "triage"
+
 # Stale critical PRs
-rhdh-plugin todo add "Follow up on stale PR #<number> (<plugin>)" --context "triage"
+$RHDH todo add "Follow up on stale PR #<number> (<plugin>)" --context "triage"
 
 # Assignment needed
-rhdh-plugin todo add "Find owner for orphan PR #<number>" --context "triage"
+$RHDH todo add "Find owner for orphan PR #<number>" --context "triage"
 
 # Release blocker
-rhdh-plugin todo add "Escalate: PR #<number> blocking release" --context "triage"
+$RHDH todo add "Escalate: PR #<number> blocking release" --context "triage"
+
+# Waiting on external response
+$RHDH todo add "Waiting on @<user> for PR #<number>" --context "triage"
 ```
 
 ## Viewing History
 
 ```bash
 # Past triage sessions
-rhdh-plugin log search "triage"
+$RHDH log search "triage"
 
 # Track specific PR across sessions
-rhdh-plugin log search "#<number>"
+$RHDH log search "#<number>"
+
+# Find all fixes
+$RHDH log search "fix"
+
+# Activity for specific plugin
+$RHDH log search "<plugin-name>"
 ```
 
 </tracking>

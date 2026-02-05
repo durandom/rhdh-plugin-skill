@@ -21,8 +21,11 @@ from typing import Any, Optional
 
 # Config directory names
 PROJECT_CONFIG_DIR_NAME = ".rhdh"
-USER_CONFIG_DIR = Path.home() / ".config" / "rhdh"
+USER_CONFIG_DIR = Path.home() / ".config" / "rhdh-skill"
 USER_CONFIG_FILE = USER_CONFIG_DIR / "config.json"
+
+# Environment variable for data directory override
+DATA_DIR_ENV_VAR = "RHDH_SKILL_DATA_DIR"
 
 # Submodule repository definitions
 # Format: name -> {has_fork, required, config_key, description}
@@ -80,6 +83,20 @@ def get_project_config_dir() -> Path:
     git_root = find_git_root()
     base = git_root if git_root else Path.cwd()
     return base / PROJECT_CONFIG_DIR_NAME
+
+
+def get_data_dir() -> Path:
+    """Get the data directory for worklog and todos.
+
+    Always centralizes data in one location to avoid scattering
+    across different repos/worktrees.
+
+    Uses RHDH_DATA_DIR env var if set, otherwise ~/.config/rhdh/.
+    """
+    env_value = os.environ.get(DATA_DIR_ENV_VAR)
+    if env_value:
+        return Path(env_value)
+    return USER_CONFIG_DIR
 
 
 def get_project_config_path() -> Path:
